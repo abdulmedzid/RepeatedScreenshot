@@ -16,6 +16,7 @@ def open_file(path):
     else:
         subprocess.Popen(["xdg-open", path])
 
+
 class LabelSpinner(tk.Frame):
     def __init__(self, parent, labelText, spinFrom, spinTo):
         tk.Frame.__init__(self, parent)
@@ -50,6 +51,7 @@ class LabelSpinner(tk.Frame):
     def get(self):
         return self.spinner.get()
 
+
 class TimeInput(tk.Frame):
     def __init__(self, parent, labelFrameText):
         tk.Frame.__init__(self, parent)
@@ -65,13 +67,16 @@ class TimeInput(tk.Frame):
         secondsInput = int(self.secondsLabelSpinner.get())
         return int(minuteInput*60 + secondsInput)
 
+
 class IntervalInput(TimeInput):
     def __init__(self, parent):
         TimeInput.__init__(self, parent, ' Screenshot frequency ')
 
+
 class DurationInput(TimeInput):
     def __init__(self, parent):
         TimeInput.__init__(self, parent, ' Screenshoting duration ')
+
 
 class SaveDirectoryInput(tk.Frame):
     def __init__(self, parent):
@@ -114,6 +119,7 @@ class SaveDirectoryInput(tk.Frame):
     def getSaveDirPath(self):
         return self.saveDirPath
 
+
 class ControlDialog(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
@@ -123,7 +129,7 @@ class ControlDialog(tk.Frame):
             self, 
             text="Stop", 
             width=10,
-            #command=endScreenshoting
+            command=self.endScreenshoting
         )
         self.stopButton.config(state=tk.DISABLED)
         self.stopButton.grid(
@@ -142,6 +148,7 @@ class ControlDialog(tk.Frame):
         )
 
         self.startButtonActive = True
+        self.shouldStopScreenshoting = False
 
     def startScreenshoting(self):
         self.intervalInSec = self.parent.intervalInput.getTimeInSec()
@@ -151,6 +158,7 @@ class ControlDialog(tk.Frame):
             self.numberOfScreenshotsTaken = 0
             self.numberOfNeededScreenshots = int(self.durationInSec / self.intervalInSec)
             self.shouldStopScreenshoting = False
+            self.switchButtonActivity()
             threading.Timer(self.intervalInSec, self.takeScreenshot).start()
 
     def takeScreenshot(self):
@@ -160,12 +168,15 @@ class ControlDialog(tk.Frame):
             screenshot.save(self.saveDirPath + '/{}.jpg'.format(self.numberOfScreenshotsTaken))
             threading.Timer(self.intervalInSec, self.takeScreenshot).start()
         else:
-            self.shouldStopScreenshoting = True
-            self.switchButtonActivity()
-            open_file(self.saveDirPath)
+            self.endScreenshoting()
 
     def shouldTakeScreenshot(self):
         return self.numberOfScreenshotsTaken <= self.numberOfNeededScreenshots and not self.shouldStopScreenshoting
+
+    def endScreenshoting(self):
+        self.shouldStopScreenshoting = True
+        self.switchButtonActivity()
+        open_file(self.saveDirPath)
 
     def switchButtonActivity(self):
         if (self.startButtonActive):
@@ -181,6 +192,7 @@ class ControlDialog(tk.Frame):
     def isInputValid(self, intervalInSec, durationInSec, saveDirPath):
         return intervalInSec != 0 and durationInSec != 0 and os.path.exists(saveDirPath)
 
+
 class MainApp(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
@@ -193,8 +205,21 @@ class MainApp(tk.Frame):
         self.saveDirInput.pack()
         self.controlDialog = ControlDialog(self)
         self.controlDialog.pack()
+        self.parent.protocol('WM_DELETE_WINDOW',  self.onClose)
+
+    def onClose(self):
+        if not self.controlDialog.startButtonActive:
+            self.controlDialog.endScreenshoting()
+        self.parent.destroy()
+
+def onClose(root, endScreenshoting):
+    endScreenshoting()
+    root.destroy()
 
 if __name__ == '__main__':
     root = tk.Tk()
-    MainApp(root).pack(side='top', fill='both', expand=True)
+    root.title('RepeatedScreenshot')
+    root.resizable(0, 0)
+    mainApp = MainApp(root)
+    mainApp.pack(side='top', fill='both', expand=True)
     root.mainloop()
